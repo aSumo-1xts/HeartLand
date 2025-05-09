@@ -1,0 +1,47 @@
+# Workflow name
+name: arduino-cli
+
+# Trigger on push to main or changes to .ino or workflow files
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "**/*.ino"
+      - ".github/workflows/arduino-cli.yaml"
+
+jobs:
+  compile-both:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Install Arduino core
+        run: |
+          arduino-cli core update-index
+          arduino-cli core install arduino:avr
+
+      - name: Install libraries
+        run: |
+          Add-Content "$env:LOCALAPPDATA\Arduino15\arduino-cli.yaml" "library:`n  enable_unsafe_install: true"
+          arduino-cli lib install MIDIUSB
+          arduino-cli lib install --git-url https://github.com/tttapa/Control-Surface.git
+
+      - name: Compile mother sketch
+        run: |
+          arduino-cli compile --fqbn arduino:avr:micro --output-dir build ./mother/mother.ino
+
+      - name: Compile daughter sketch
+        run: |
+          arduino-cli compile --fqbn arduino:avr:mega --output-dir build ./daughter/daughter.ino
+
+      - name: Upload HEX artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-hex
+          path: build/*.hex
